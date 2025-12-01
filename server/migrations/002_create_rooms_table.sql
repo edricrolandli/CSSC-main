@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 CREATE INDEX IF NOT EXISTS idx_rooms_name ON rooms(name);
 CREATE INDEX IF NOT EXISTS idx_rooms_active ON rooms(is_active);
 
--- Create trigger for updated_at
+-- Create trigger for rooms table
+DROP TRIGGER IF EXISTS update_rooms_updated_at ON rooms;
 CREATE TRIGGER update_rooms_updated_at BEFORE UPDATE
     ON rooms FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

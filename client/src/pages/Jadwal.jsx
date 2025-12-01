@@ -1,18 +1,23 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import apiService from "../services/api.js";
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt } from "react-icons/fa";
 
-    const Jadwal = () => {
+const Jadwal = () => {
     const { user } = useAuth();
     const [currentWeek, setCurrentWeek] = useState(0);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [scheduleData, setScheduleData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(new Date());
 
     const START_HOUR = 7; 
     const END_HOUR = 18;  
     const ROW_HEIGHT = 80; 
+
+    // 5 days only (Senin-Jumat)
+    const WEEKDAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"]; 
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -230,13 +235,14 @@ import apiService from "../services/api.js";
 
     const getDaysInWeek = () => {
         const now = new Date();
-        const dayOfWeek = now.getDay(); 
-        const diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) + (currentWeek * 7);
-        
+        const currentDay = now.getDay(); // 0 = Minggu, 1 = Senin, ...
+        const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay; // If Sunday, go back 6 days
         const monday = new Date(now.setDate(diffToMonday));
+        
         const days = [];
-
-        for (let i = 0; i < 6; i++) { 
+        
+        // Generate 5 days only (Senin-Jumat)
+        for (let i = 0; i < 5; i++) {
             const date = new Date(monday);
             date.setDate(monday.getDate() + i);
             const dayNameIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][date.getDay()];
@@ -305,8 +311,8 @@ import apiService from "../services/api.js";
                 {!loading && (
                     <>
                         {/* --- HEADER --- */}
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
-                            <div>
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-8 gap-6">
+                            <div className="flex-1">
                                 <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Jadwal Kelas</h1>
                                 
                                 {/* UPDATE: Nama Mahasiswa tanpa padding (sesuai request) */}
@@ -316,6 +322,37 @@ import apiService from "../services/api.js";
                                         {user?.name || "User"}
                                     </span>
                                     </h1>
+                                </div>
+                            </div>
+                            
+                            {/* Calendar Widget */}
+                            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                                    <FaCalendarAlt className="text-blue-600" />
+                                    <span>{monthNames[weekDays[0]?.dateObj?.getMonth()]} {weekDays[0]?.dateObj?.getFullYear()}</span>
+                                </div>
+                                <div className="grid grid-cols-5 gap-1 text-center">
+                                    {WEEKDAYS.map((day, index) => (
+                                        <div key={day} className="text-xs font-medium text-gray-500 py-1">
+                                            {day.substring(0, 3)}
+                                        </div>
+                                    ))}
+                                    {weekDays.map((day, index) => {
+                                        const isToday = selectedDate.toDateString() === day.dateObj.toDateString();
+                                        return (
+                                            <button
+                                                key={index}
+                                                onClick={() => setSelectedDate(day.dateObj)}
+                                                className={`text-sm py-2 rounded-lg transition-colors ${
+                                                    isToday 
+                                                        ? 'bg-blue-600 text-white font-bold' 
+                                                        : 'hover:bg-gray-100 text-gray-700'
+                                                }`}
+                                            >
+                                                {day.dateNum}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                             
@@ -355,9 +392,9 @@ import apiService from "../services/api.js";
                     </div>
 
                     {/* Area Grid Jadwal Scrollable */}
-                    <div className="relative overflow-y-auto max-h-[700px]">
+                    <div className="relative overflow-y-auto max-h-[700px] border border-gray-200 rounded-lg bg-white">
                         {/* Background Grid Lines */}
-                        <div className="absolute inset-0 grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr]">
+                        <div className="absolute inset-0 grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr]">
                             <div className="border-r border-gray-200 bg-gray-50">
                                 {timeSlots.map((time, idx) => (
                                     <div key={idx} className="border-b border-gray-200 text-xs text-gray-400 font-medium pr-3 flex items-start justify-end pt-1" style={{ height: `${ROW_HEIGHT}px` }}>

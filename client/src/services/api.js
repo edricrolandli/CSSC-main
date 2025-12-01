@@ -118,11 +118,11 @@ class ApiService {
     return this.get(`/courses/${id}`);
   }
 
-  async subscribeToCourse(courseId) {
+  async subscribeCourse(courseId) {
     return this.post('/courses/subscribe', { course_id: courseId });
   }
 
-  async unsubscribeFromCourse(courseId) {
+  async unsubscribeCourse(courseId) {
     return this.delete('/courses/unsubscribe', { course_id: courseId });
   }
 

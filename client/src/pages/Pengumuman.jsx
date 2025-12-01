@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { FaPlus, FaClock, FaUserTie, FaUserGraduate, FaBullhorn, FaCheckCircle, FaCalendarDay } from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
 
 const Pengumuman = () => {
-    const user = { name: "Yehezkiel", role: "Komting" }; 
+    const { user } = useAuth(); 
 
     const [announcements, setAnnouncements] = useState([]);
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -80,7 +81,14 @@ const Pengumuman = () => {
                     badge: "bg-blue-100 text-blue-700",
                     icon: <FaBullhorn />
                 };
-            default: // Mahasiswa
+            case "Anggota": // Mahasiswa
+                return {
+                    border: "border-l-4 border-gray-400",
+                    bg: "bg-white",
+                    badge: "bg-gray-100 text-gray-600",
+                    icon: <FaUserGraduate />
+                };
+            default: // Fallback
                 return {
                     border: "border-l-4 border-gray-400",
                     bg: "bg-white",
@@ -89,6 +97,9 @@ const Pengumuman = () => {
                 };
         }
     };
+
+    // Check if user can create announcements
+    const canCreateAnnouncement = user?.role === "Komting";
 
     // Grouping announcements by date
     const groupedAnnouncements = announcements.reduce((groups, announcement) => {
@@ -110,13 +121,20 @@ const Pengumuman = () => {
                         <h1 className="text-3xl font-extrabold text-gray-900 mb-1">Papan Pengumuman</h1>
                         <p className="text-gray-500 text-sm">Informasi terbaru seputar perkuliahan dan akademik.</p>
                     </div>
-                    <button
-                        onClick={() => setShowCreateForm(true)}
-                        className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-full font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
-                    >
-                        <FaPlus className="text-amber-400" />
-                        <span>Buat Pengumuman</span>
-                    </button>
+                    {canCreateAnnouncement ? (
+                        <button
+                            onClick={() => setShowCreateForm(true)}
+                            className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-full font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
+                        >
+                            <FaPlus className="text-amber-400" />
+                            <span>Buat Pengumuman</span>
+                        </button>
+                    ) : (
+                        <div className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm">
+                            <FaUserGraduate className="inline mr-2" />
+                            Hanya Komting yang bisa buat pengumuman
+                        </div>
+                    )}
                 </div>
 
                 {/* Timeline Feed */}

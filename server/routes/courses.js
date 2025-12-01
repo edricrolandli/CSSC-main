@@ -57,7 +57,7 @@ router.get('/', async (req, res) => {
       SELECT c.id, c.course_code, c.name, c.description, c.default_day, 
              c.default_start_time, c.default_end_time, c.semester, c.academic_year,
              l.name as lecturer_name, k.name as komting_name, r.name as room_name,
-             COUNT(cs.id) as subscriber_count
+             COUNT(cs.course_id) as subscriber_count
       FROM courses c
       LEFT JOIN users l ON c.lecturer_id = l.id
       LEFT JOIN users k ON c.komting_id = k.id
@@ -188,7 +188,7 @@ router.post('/subscribe', authenticateToken, async (req, res) => {
 
     // Check if already subscribed
     const existingSubscription = await pool.query(
-      'SELECT id FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
+      'SELECT user_id, course_id FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
       [user_id, course_id]
     );
 
@@ -201,7 +201,7 @@ router.post('/subscribe', authenticateToken, async (req, res) => {
 
     // Create subscription
     const result = await pool.query(
-      'INSERT INTO course_subscriptions (user_id, course_id) VALUES ($1, $2) RETURNING id, subscribed_at',
+      'INSERT INTO course_subscriptions (user_id, course_id) VALUES ($1, $2) RETURNING user_id, course_id, subscribed_at',
       [user_id, course_id]
     );
 
@@ -210,8 +210,8 @@ router.post('/subscribe', authenticateToken, async (req, res) => {
     res.status(201).json({
       message: 'Successfully subscribed to course',
       subscription: {
-        id: result.rows[0].id,
-        course_id,
+        user_id: result.rows[0].user_id,
+        course_id: result.rows[0].course_id,
         course_name: course.name,
         subscribed_at: result.rows[0].subscribed_at
       }
@@ -242,7 +242,7 @@ router.delete('/unsubscribe', authenticateToken, async (req, res) => {
 
     // Check if subscription exists
     const existingSubscription = await pool.query(
-      'SELECT id FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
+      'SELECT user_id, course_id FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
       [user_id, course_id]
     );
 
@@ -278,7 +278,7 @@ router.get('/my/subscriptions', authenticateToken, async (req, res) => {
     const user_id = req.user.id;
 
     const result = await pool.query(`
-      SELECT c.id, c.course_code, c.name, c.description, c.default_day, 
+      SELECT c.id as course_id, c.course_code, c.name, c.description, c.default_day, 
              c.default_start_time, c.default_end_time, c.semester, c.academic_year,
              l.name as lecturer_name, k.name as komting_name, r.name as room_name,
              cs.subscribed_at
@@ -292,7 +292,7 @@ router.get('/my/subscriptions', authenticateToken, async (req, res) => {
     `, [user_id]);
 
     res.json({
-      courses: result.rows,
+      subscriptions: result.rows,
       total: result.rows.length
     });
 

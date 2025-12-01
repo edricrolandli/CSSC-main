@@ -61,6 +61,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Root endpoint - API info
+app.get('/', (req, res) => {
+  res.json({
+    message: 'CSSC Scheduling System API',
+    version: '1.0.0',
+    status: 'Running',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      courses: '/api/courses',
+      schedule: '/api/schedule',
+      rooms: '/api/rooms',
+      notifications: '/api/notifications'
+    },
+    documentation: 'See README.md for API documentation'
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);

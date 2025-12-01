@@ -1,10 +1,9 @@
--- Create Course Subscriptions Table (Many-to-Many between Users and Courses)
+-- Create Course Subscriptions Table (Many-to-Many relationship)
 CREATE TABLE IF NOT EXISTS course_subscriptions (
-    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     subscribed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, course_id)
+    PRIMARY KEY (user_id, course_id)
 );
 
 -- Create indexes

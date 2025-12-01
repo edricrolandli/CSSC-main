@@ -15,22 +15,23 @@ const Login = () => {
         setForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
 
-        const result = login(form);
+        try {
+            const result = await login(form);
 
-        if (result.success) {
-            const from = location.state?.from?.pathname || "/Profile";
-            navigate(from, { replace: true });
-            return;
-        }
+            if (result.success) {
+                const from = location.state?.from?.pathname || "/Profile";
+                navigate(from, { replace: true });
+                return;
+            }
 
-        if (result.reason === "NOT_REGISTERED") {
-            navigate("/Register", { replace: true });
-        } else {
-            setError("Nama, email, atau password salah.");
+            setError(result.error || "Nama, email, atau password salah.");
+        } catch (error) {
+            setError("Terjadi kesalahan. Silakan coba lagi.");
+            console.error("Login error:", error);
         }
     };
 

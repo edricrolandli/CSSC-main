@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_courses_lecturer ON courses(lecturer_id);
 CREATE INDEX IF NOT EXISTS idx_courses_komting ON courses(komting_id);
 CREATE INDEX IF NOT EXISTS idx_courses_active ON courses(is_active);
 
--- Create trigger for updated_at
+-- Create trigger for courses table
+DROP TRIGGER IF EXISTS update_courses_updated_at ON courses;
 CREATE TRIGGER update_courses_updated_at BEFORE UPDATE
     ON courses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
