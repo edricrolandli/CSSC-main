@@ -216,6 +216,19 @@ class ApiService {
     return this.get('/courses/schedules/all');
   }
 
+  // Announcements methods
+  async getMyAnnouncements() {
+    return this.get('/announcements/my');
+  }
+
+  async getAllAnnouncements() {
+    return this.get('/announcements/all');
+  }
+
+  async createAnnouncement(data) {
+    return this.post('/announcements', data);
+  }
+
   // Health check
   async healthCheck() {
     return this.get('/health');

@@ -27,75 +27,30 @@ const Pengumuman = () => {
         }
     }, [user]);
 
-    // Load Data
+    // Load Data from Backend
     useEffect(() => {
-        const savedAnnouncements = localStorage.getItem("cssc-announcements");
-        if (savedAnnouncements) {
-            setAnnouncements(JSON.parse(savedAnnouncements));
-        } else {
-            const sampleAnnouncements = [
-                {
-                    id: 1,
-                    title: "Perubahan Jadwal Wirausaha Digital",
-                    content: "Teman-teman, mata kuliah Wirausaha Digital hari ini dipindah ke hari Kamis minggu depan ya. Mohon infokan ke yang lain.",
-                    author: "Edric",
-                    authorRole: "Komting",
-                    subject: "Wirausaha Digital",
-                    date: "2025-10-31",
-                    time: "07:21",
-                    status: "approved"
-                },
-                {
-                    id: 2,
-                    title: "Kuliah Pengganti Basis Data",
-                    content: "Assalamualaikum, perkuliahan Basis Data kita adakan nanti malam pukul 20.00 WIB secara Daring (Zoom). Link akan dibagikan 15 menit sebelum mulai.",
-                    author: "Dr. Dewi Sartika",
-                    authorRole: "Dosen",
-                    subject: "Basis Data",
-                    date: "2025-11-05",
-                    time: "10:22",
-                    status: "approved"
-                },
-                {
-                    id: 3,
-                    title: "Dosen Tidak Hadir",
-                    content: "Info dari bapak dosen, hari ini beliau berhalangan hadir karena ada rapat di rektorat. Tugas akan dikirim via Google Classroom.",
-                    author: "Yehezkiel",
-                    authorRole: "Mahasiswa",
-                    subject: "Kecerdasan Buatan",
-                    date: "2025-11-07",
-                    time: "08:15",
-                    status: "pending"
-                },
-                {
-                    id: 4,
-                    title: "Pengumpulan Tugas Struktur Data",
-                    content: "Pengumpulan tugas Struktur Data ditutup hari Jumat pukul 23:59. Silakan upload di Google Classroom. Terlambat tidak akan diterima.",
-                    author: "Anandhini",
-                    authorRole: "Dosen",
-                    subject: "Struktur Data",
-                    date: "2025-11-08",
-                    time: "14:30",
-                    status: "approved"
-                },
-                {
-                    id: 5,
-                    title: "Etika Profesi - Diskusi Kasus",
-                    content: "Minggu depan kita akan melakukan diskusi kasus tentang etika dalam pengembangan software. Silakan baca materi yang sudah di-upload.",
-                    author: "Dr. Ade Gunawan",
-                    authorRole: "Dosen",
-                    subject: "Etika Profesi",
-                    date: "2025-11-09",
-                    time: "09:45",
-                    status: "approved"
-                }
-            ];
-            // Sort by date descending (terbaru diatas)
-            const sorted = sampleAnnouncements.sort((a, b) => new Date(b.date) - new Date(a.date));
-            setAnnouncements(sorted);
-            localStorage.setItem("cssc-announcements", JSON.stringify(sorted));
+        const loadAnnouncements = async () => {
+            try {
+                setLoading(true);
+                const response = await apiService.getMyAnnouncements();
+                const announcements = response.announcements || [];
+                
+                // Sort by date descending (terbaru diatas)
+                const sorted = announcements.sort((a, b) => new Date(b.date) - new Date(a.date));
+                setAnnouncements(sorted);
+            } catch (error) {
+                console.error('Error loading announcements:', error);
+                // Fallback to empty array if API fails
+                setAnnouncements([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (user) {
+            loadAnnouncements();
         }
-    }, []);
+    }, [user]);
 
     // Format Tanggal Indonesia
     const formatDateIndo = (dateString) => {
@@ -261,9 +216,18 @@ const Pengumuman = () => {
                         subscriptions={mySubscriptions}
                         onClose={() => setShowCreateForm(false)}
                         onSubmit={(newAnnouncement) => {
-                            const updated = [newAnnouncement, ...announcements].sort((a, b) => new Date(b.date) - new Date(a.date));
-                            setAnnouncements(updated);
-                            localStorage.setItem("cssc-announcements", JSON.stringify(updated));
+                            // Reload announcements from backend
+                            const loadAnnouncements = async () => {
+                                try {
+                                    const response = await apiService.getMyAnnouncements();
+                                    const announcements = response.announcements || [];
+                                    const sorted = announcements.sort((a, b) => new Date(b.date) - new Date(a.date));
+                                    setAnnouncements(sorted);
+                                } catch (error) {
+                                    console.error('Error reloading announcements:', error);
+                                }
+                            };
+                            loadAnnouncements();
                             setShowCreateForm(false);
                         }}
                     />
@@ -281,22 +245,38 @@ const CreateAnnouncementModal = ({ user, subscriptions, onClose, onSubmit }) => 
         content: "",
         title: ""
     });
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
         
-        const newAnnouncement = {
-            id: Date.now(),
-            title: formData.title,
-            content: formData.content,
-            author: user.name,
-            authorRole: user.role,
-            subject: formData.subject,
-            date: formData.date,
-            time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.',':'),
-            status: "approved"
-        };
-        onSubmit(newAnnouncement);
+        try {
+            // Send to backend API
+            const response = await apiService.createAnnouncement({
+                title: formData.title,
+                content: formData.content,
+                subject: formData.subject,
+                date: formData.date,
+                time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.',':')
+            });
+            
+            // Call onSubmit with the created announcement
+            onSubmit(response.announcement);
+            
+            // Reset form
+            setFormData({
+                subject: "",
+                date: new Date().toISOString().split('T')[0],
+                content: "",
+                title: ""
+            });
+        } catch (error) {
+            console.error('Error creating announcement:', error);
+            alert('Gagal membuat pengumuman. Silakan coba lagi.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

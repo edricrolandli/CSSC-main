@@ -14,6 +14,7 @@ import courseRoutes from './routes/courses.js';
 import scheduleRoutes from './routes/schedule.js';
 import roomRoutes from './routes/rooms.js';
 import notificationRoutes from './routes/notifications.js';
+import announcementRoutes from './routes/announcements.js';
 
 // Import database
 import './config/database.js';
@@ -85,6 +86,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // Socket.IO for real-time updates
 io.on('connection', (socket) => {

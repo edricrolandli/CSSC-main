@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import apiService from "../services/api.js";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -34,19 +34,49 @@ const Jadwal = () => {
                 setLoading(true);
                 setError(null);
 
-                // Get current week's date range
-                const monday = getMonday(currentDate);
-                const sunday = new Date(monday);
-                sunday.setDate(monday.getDate() + 6);
-
-                // Fetch real schedule
-                const response = await apiService.getRealSchedule({
-                    start_date: monday.toISOString().split('T')[0],
-                    end_date: sunday.toISOString().split('T')[0]
+                // Fetch user's schedules from subscribed courses
+                const response = await apiService.getMySchedules();
+                const schedules = response.schedules || [];
+                
+                // Transform API data to match expected format
+                const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                const colorMap = {
+                    'Pemrograman Website': 'bg-blue-100 text-blue-700',
+                    'Kecerdasan Buatan': 'bg-purple-100 text-purple-700',
+                    'Basis Data': 'bg-indigo-100 text-indigo-700',
+                    'Etika Profesi': 'bg-pink-100 text-pink-700',
+                    'Wirausaha Digital': 'bg-orange-100 text-orange-700',
+                    'Struktur Data': 'bg-green-100 text-green-700'
+                };
+                
+                // Group schedules by day
+                const groupedByDay = {};
+                schedules.forEach(schedule => {
+                    if (!schedule.day_of_week) return;
+                    
+                    const dayName = dayNames[schedule.day_of_week];
+                    if (!groupedByDay[dayName]) {
+                        groupedByDay[dayName] = [];
+                    }
+                    
+                    groupedByDay[dayName].push({
+                        subject: schedule.course_name,
+                        time: `${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`,
+                        room: schedule.room_code || 'TBA',
+                        instructor: schedule.lecturer_name || 'TBA',
+                        color: colorMap[schedule.course_name] || 'bg-gray-100 text-gray-700'
+                    });
                 });
-
-                setScheduleData(response.schedules || []);
+                
+                // Convert to array format
+                const transformedData = Object.entries(groupedByDay).map(([dayName, classes]) => ({
+                    dayName,
+                    classes
+                }));
+                
+                setScheduleData(transformedData);
             } catch (err) {
+                console.error('Error fetching schedules:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);
@@ -54,7 +84,7 @@ const Jadwal = () => {
         };
 
         fetchSchedule();
-    }, [user, currentDate]);
+    }, [user]);
 
     // Get Monday of the week containing the given date
     const getMonday = (date) => {
@@ -103,18 +133,6 @@ const Jadwal = () => {
         return days;
     };
 
-    const timeSlots = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => {
-        const hour = START_HOUR + i;
-        return `${hour.toString().padStart(2, '0')}:00`;
-    });
-
-    const weekDays = getWeekDays();
-    const calendarDays = getCalendarDays();
-    const isToday = (date) => {
-        const today = new Date();
-        return date.toDateString() === today.toDateString();
-    };
-
     const calculateTopPosition = (timeString) => {
         const [hour, minute] = timeString.split(":").map(Number);
         const totalMinutesFromStart = (hour - START_HOUR) * 60 + minute;
@@ -135,7 +153,19 @@ const Jadwal = () => {
         return (totalMinutesFromStart / 60) * ROW_HEIGHT;
     };
 
-    const currentTimeTop = getCurrentTimePosition();
+    const timeSlots = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => {
+        const hour = START_HOUR + i;
+        return `${hour.toString().padStart(2, '0')}:00`;
+    });
+
+    const weekDays = useMemo(() => getWeekDays(), [currentDate, scheduleData]);
+    const calendarDays = useMemo(() => getCalendarDays(), [currentDate]);
+    const currentTimeTop = useMemo(() => getCurrentTimePosition(), [currentTime]);
+    
+    const isToday = (date) => {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    };
 
     return (
         <div className="min-h-screen bg-[#f5f5f0] pt-24 pb-10 px-4 sm:px-6 lg:px-8 font-sans">
