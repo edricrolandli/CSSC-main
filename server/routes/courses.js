@@ -384,4 +384,79 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Get schedules for user's subscribed courses
+router.get('/schedules/my', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user's subscribed courses and their schedules
+    const result = await pool.query(`
+      SELECT 
+        cs.id,
+        c.id as course_id,
+        c.name as course_name,
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        r.name as room_code,
+        cs.lecturer_name,
+        cs.semester,
+        cs.academic_year
+      FROM course_subscriptions sub
+      JOIN courses c ON sub.course_id = c.id
+      LEFT JOIN class_schedules cs ON c.id = cs.course_id
+      LEFT JOIN rooms r ON cs.room_id = r.id
+      WHERE sub.user_id = $1
+      ORDER BY cs.day_of_week, cs.start_time
+    `, [userId]);
+    
+    res.json({
+      schedules: result.rows,
+      total: result.rows.length
+    });
+    
+  } catch (error) {
+    console.error('Get schedules error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch schedules',
+      details: error.message
+    });
+  }
+});
+
+// Get all schedules (for admin/komting)
+router.get('/schedules/all', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        cs.id,
+        c.id as course_id,
+        c.name as course_name,
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        r.name as room_code,
+        cs.lecturer_name,
+        cs.semester,
+        cs.academic_year
+      FROM class_schedules cs
+      JOIN courses c ON cs.course_id = c.id
+      LEFT JOIN rooms r ON cs.room_id = r.id
+      ORDER BY cs.day_of_week, cs.start_time
+    `);
+    
+    res.json({
+      schedules: result.rows,
+      total: result.rows.length
+    });
+    
+  } catch (error) {
+    console.error('Get all schedules error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch schedules',
+      details: error.message
+    });
+  }
+});
+
 export default router;

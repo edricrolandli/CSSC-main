@@ -207,6 +207,15 @@ class ApiService {
     return this.post('/notifications/test', { type, recipient });
   }
 
+  // Schedule methods
+  async getMySchedules() {
+    return this.get('/courses/schedules/my');
+  }
+
+  async getAllSchedules() {
+    return this.get('/courses/schedules/all');
+  }
+
   // Health check
   async healthCheck() {
     return this.get('/health');
