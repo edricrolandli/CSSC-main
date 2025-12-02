@@ -46,124 +46,220 @@ async function seedDatabase() {
     
     console.log('👥 Users created:', usersResult.rows.map(u => `${u.name} (${u.role})`));
     
-    // Get room IDs
-    const rooms = roomsResult.rows.reduce((acc, room) => {
-      acc[room.name] = room.id;
-      return acc;
-    }, {});
+    // Initialize all mappings at the beginning
+    const roomMap = {};
+    const userMap = {};
+    const emailToUserMap = {};
     
-    // Get user IDs
-    const users = usersResult.rows.reduce((acc, user) => {
-      acc[user.name] = user.id;
-      return acc;
-    }, {});
+    // Populate room map
+    roomsResult.rows.forEach(room => {
+      roomMap[room.name] = room.id;
+    });
+    
+    // Populate user maps
+    usersResult.rows.forEach(user => {
+      userMap[user.name] = user.id;
+      if (user.email) {
+        emailToUserMap[user.email] = user.id;
+      }
+    });
     
     // Insert Courses
     const coursesData = [
       {
-        code: 'BD202',
-        name: 'Praktikum Basis Data',
-        lecturer_id: users['Muhammad Syukron Jazila'],
-        komting_id: users['Alya Debora Panggabean'],
-        default_day: 1, // Senin
-        default_start_time: '08:20:00',
-        default_end_time: '10:00:00',
-        default_room_id: rooms['Lab 2'],
-        semester: 'Ganjil 2024/2025',
-        academic_year: '2024/2025'
-      },
-      {
-        code: 'KEB202',
-        name: 'Komputerisasi Ekon. & Bisnis',
-        lecturer_id: users['Muhammad Syukron Jazila'],
-        komting_id: users['Alya Debora Panggabean'],
-        default_day: 1, // Senin
-        default_start_time: '10:30:00',
-        default_end_time: '12:10:00',
-        default_room_id: rooms['GL 1'],
-        semester: 'Ganjil 2024/2025',
-        academic_year: '2024/2025'
-      },
-      {
-        code: 'IELTS202',
-        name: 'IELTS Preparation',
-        lecturer_id: users['Muhammad Syukron Jazila'],
-        komting_id: users['Alya Debora Panggabean'],
-        default_day: 2, // Selasa
-        default_start_time: '08:50:00',
+        code: 'PW202',
+        name: 'Pemrograman Website',
+        lecturer_id: usersResult.rows[1].id, // Dosen pertama
+        komting_id: usersResult.rows[2].id,  // Komting pertama
+        default_day: 3, // Rabu
+        default_start_time: '08:00:00',
         default_end_time: '10:30:00',
-        default_room_id: rooms['D-101'],
-        semester: 'Ganjil 2024/2025',
-        academic_year: '2024/2025'
-      },
-      {
-        code: 'SD202',
-        name: 'Praktikum Struktur Data (Lanjutan)',
-        lecturer_id: users['Anandhini Medianty Nababan'],
-        komting_id: users['Muhammad Dzakwan Attaqiy'],
-        default_day: 2, // Selasa
-        default_start_time: '10:30:00',
-        default_end_time: '12:10:00',
-        default_room_id: rooms['Lab 2'],
-        semester: 'Ganjil 2024/2025',
+        default_room_id: roomMap['D-103'],
+        semester: 'Ganjil',
         academic_year: '2024/2025'
       },
       {
         code: 'KB202',
         name: 'Kecerdasan Buatan',
-        lecturer_id: users['Anandhini Medianty Nababan'],
-        komting_id: users['Muhammad Dzakwan Attaqiy'],
+        lecturer_id: usersResult.rows[1].id,
+        komting_id: usersResult.rows[2].id,
         default_day: 2, // Selasa
         default_start_time: '13:50:00',
         default_end_time: '16:20:00',
-        default_room_id: rooms['D-104'],
-        semester: 'Ganjil 2024/2025',
+        default_room_id: roomMap['D-104'],
+        semester: 'Ganjil',
         academic_year: '2024/2025'
       },
       {
-        code: 'PW202',
-        name: 'Pemrograman Website',
-        lecturer_id: users['Anandhini Medianty Nababan'],
-        komting_id: users['Muhammad Dzakwan Attaqiy'],
+        code: 'BD202',
+        name: 'Basis Data',
+        lecturer_id: usersResult.rows[3].id, // Dosen kedua
+        komting_id: usersResult.rows[4].id,  // Komting kedua
         default_day: 3, // Rabu
+        default_start_time: '13:50:00',
+        default_end_time: '17:10:00',
+        default_room_id: roomMap['D-103'],
+        semester: 'Ganjil',
+        academic_year: '2024/2025'
+      },
+      {
+        code: 'EP202',
+        name: 'Etika Profesi',
+        lecturer_id: usersResult.rows[3].id,
+        komting_id: usersResult.rows[2].id,
+        default_day: 4, // Kamis
         default_start_time: '08:00:00',
-        default_end_time: '10:30:00',
-        default_room_id: rooms['D-103'],
-        semester: 'Ganjil 2024/2025',
+        default_end_time: '09:40:00',
+        default_room_id: roomMap['D-104'],
+        semester: 'Ganjil',
+        academic_year: '2024/2025'
+      },
+      {
+        code: 'WD202',
+        name: 'Wirausaha Digital',
+        lecturer_id: usersResult.rows[1].id,
+        komting_id: usersResult.rows[4].id,
+        default_day: 5, // Jumat
+        default_start_time: '08:00:00',
+        default_end_time: '09:40:00',
+        default_room_id: roomMap['D-104'],
+        semester: 'Ganjil',
+        academic_year: '2024/2025'
+      },
+      {
+        code: 'SD202',
+        name: 'Struktur Data',
+        lecturer_id: usersResult.rows[3].id,
+        komting_id: usersResult.rows[2].id,
+        default_day: 5, // Jumat
+        default_start_time: '13:50:00',
+        default_end_time: '16:20:00',
+        default_room_id: roomMap['D-101'],
+        semester: 'Ganjil',
         academic_year: '2024/2025'
       }
     ];
     
+    // Insert courses
     const coursesResult = await pool.query(`
-      INSERT INTO courses (course_code, name, lecturer_id, komting_id, default_day, default_start_time, default_end_time, default_room_id, semester, academic_year)
-      VALUES ${coursesData.map((_, i) => `($${i*9+1}, $${i*9+2}, $${i*9+3}, $${i*9+4}, $${i*9+5}, $${i*9+6}, $${i*9+7}, $${i*9+8}, $${i*9+9}, $${i*9+10})`).join(', ')}
-      RETURNING id, course_code, name
+      INSERT INTO courses (course_code, name, lecturer_id, komting_id, default_day, 
+                          default_start_time, default_end_time, default_room_id, 
+                          semester, academic_year)
+      VALUES ${coursesData.map((_, i) => 
+        `($${i*10+1}, $${i*10+2}, $${i*10+3}, $${i*10+4}, $${i*10+5}, $${i*10+6}, $${i*10+7}, $${i*10+8}, $${i*10+9}, $${i*10+10})`
+      ).join(', ')}
+      RETURNING id, name, course_code
     `, coursesData.flatMap(course => [
-      course.code, course.name, course.lecturer_id, course.komting_id,
-      course.default_day, course.default_start_time, course.default_end_time,
-      course.default_room_id, course.semester, course.academic_year
+      course.code, course.name, course.lecturer_id, course.komting_id, course.default_day,
+      course.default_start_time, course.default_end_time, course.default_room_id,
+      course.semester, course.academic_year
     ]));
     
     console.log('📚 Courses created:', coursesResult.rows.map(c => `${c.course_code} - ${c.name}`));
     
-    // Create course subscriptions (Yehezkiel subscribes to all courses)
-    const courses = coursesResult.rows.reduce((acc, course) => {
-      acc[course.course_code] = course.id;
-      return acc;
-    }, {});
+    // Create course map
+    const courseMap = {};
+    coursesResult.rows.forEach(course => {
+      courseMap[course.name] = course.id;
+    });
     
-    const subscriptions = Object.values(courses).map(courseId => 
-      `(${users['Yehezkiel']}, ${courseId})`
-    ).join(', ');
+    // Insert class schedules
+    const classSchedules = [
+      {
+        course_name: 'Pemrograman Website',
+        day_of_week: 3, // Rabu
+        start_time: '08:00:00',
+        end_time: '10:30:00',
+        room_code: 'D-103',
+        lecturer_name: usersResult.rows[1].name // Menggunakan nama dosen dari data yang sudah ada
+      },
+      {
+        course_name: 'Kecerdasan Buatan',
+        day_of_week: 2, // Selasa
+        start_time: '13:50:00',
+        end_time: '16:20:00',
+        room_code: 'D-104',
+        lecturer_name: usersResult.rows[1].name
+      },
+      {
+        course_name: 'Basis Data',
+        day_of_week: 3, // Rabu
+        start_time: '13:50:00',
+        end_time: '17:10:00',
+        room_code: 'D-103',
+        lecturer_name: usersResult.rows[3].name
+      },
+      {
+        course_name: 'Etika Profesi',
+        day_of_week: 4, // Kamis
+        start_time: '08:00:00',
+        end_time: '09:40:00',
+        room_code: 'D-104',
+        lecturer_name: usersResult.rows[3].name
+      },
+      {
+        course_name: 'Wirausaha Digital',
+        day_of_week: 5, // Jumat
+        start_time: '08:00:00',
+        end_time: '09:40:00',
+        room_code: 'D-104',
+        lecturer_name: usersResult.rows[1].name
+      },
+      {
+        course_name: 'Struktur Data',
+        day_of_week: 5, // Jumat
+        start_time: '13:50:00',
+        end_time: '16:20:00',
+        room_code: 'D-101',
+        lecturer_name: usersResult.rows[3].name
+      }
+    ];
     
-    await pool.query(`
-      INSERT INTO course_subscriptions (user_id, course_id)
-      VALUES ${subscriptions}
-    `);
+    // Insert class schedules
+    for (const schedule of classSchedules) {
+      await pool.query(
+        `INSERT INTO class_schedules 
+         (course_id, day_of_week, start_time, end_time, room_id, lecturer_name, semester, academic_year)
+         VALUES ($1, $2, $3, $4, $5, $6, 'Ganjil', '2024/2025')`,
+        [
+          courseMap[schedule.course_name],
+          schedule.day_of_week,
+          schedule.start_time,
+          schedule.end_time,
+          roomMap[schedule.room_code],
+          schedule.lecturer_name
+        ]
+      );
+    }
+    console.log('📅 Class schedules created');
     
-    console.log('📝 Course subscriptions created for Yehezkiel');
+    // Subscribe users to courses
+    const userEmails = ['yehezkiel@usu.ac.id', 'dzakwan@usu.ac.id', 'alya@usu.ac.id'];
     
-    // Create default schedule events for this week
+    for (const email of userEmails) {
+      const userId = emailToUserMap[email];
+      if (!userId) {
+        console.log(`⚠️ User with email ${email} not found`);
+        continue;
+      }
+      
+      // Subscribe to all courses
+      for (const courseName in courseMap) {
+        try {
+          await pool.query(
+            `INSERT INTO course_subscriptions (user_id, course_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, course_id) DO NOTHING`,
+            [userId, courseMap[courseName]]
+          );
+        } catch (error) {
+          console.error(`Error subscribing user ${email} to course ${courseName}:`, error);
+        }
+      }
+      console.log(`✅ Subscribed user ${email} to all courses`);
+    }
+    
+    // Create schedule events for this week
     const today = new Date();
     const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
@@ -177,7 +273,7 @@ async function seedDatabase() {
       eventDate.setDate(monday.getDate() + (course.default_day - 1)); // 1 = Monday
       
       scheduleEvents.push({
-        course_id: courses[course.code],
+        course_id: courseMap[course.name],
         room_id: course.default_room_id,
         event_date: eventDate.toISOString().split('T')[0],
         start_time: course.default_start_time,
@@ -189,7 +285,7 @@ async function seedDatabase() {
     if (scheduleEvents.length > 0) {
       await pool.query(`
         INSERT INTO schedule_events (course_id, room_id, event_date, start_time, end_time, status)
-        VALUES ${scheduleEvents.map((_, i) => `($${i*5+1}, $${i*5+2}, $${i*5+3}, $${i*5+4}, $${i*5+5}, $${i*5+6})`).join(', ')}
+        VALUES ${scheduleEvents.map((_, i) => `($${i*6+1}, $${i*6+2}, $${i*6+3}, $${i*6+4}, $${i*6+5}, $${i*6+6})`).join(', ')}
       `, scheduleEvents.flatMap(event => [
         event.course_id, event.room_id, event.event_date, 
         event.start_time, event.end_time, event.status

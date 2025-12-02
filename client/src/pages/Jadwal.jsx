@@ -12,7 +12,7 @@ const Jadwal = () => {
     const [error, setError] = useState(null);
 
     const START_HOUR = 7;
-    const END_HOUR = 18;
+    const END_HOUR = 23; // Extend to 11 PM
     const ROW_HEIGHT = 60;
 
     // 5 days only (Senin-Jumat)
@@ -27,6 +27,8 @@ const Jadwal = () => {
 
     // Fetch schedule data from backend
     useEffect(() => {
+        let isMounted = true;
+        
         const fetchSchedule = async () => {
             if (!user) return;
 
@@ -35,10 +37,17 @@ const Jadwal = () => {
                 setError(null);
 
                 // Fetch user's schedules from subscribed courses
+                console.log('🔄 Fetching schedules...');
                 const response = await apiService.getMySchedules();
-                const schedules = response.schedules || [];
+                console.log('📦 Raw API response:', response);
                 
-                console.log('📅 Raw schedules from API:', schedules);
+                // Handle both response formats: direct array or { schedules: [...] }
+                const schedules = Array.isArray(response) ? response : 
+                                (response.schedules || response.data?.schedules || []);
+                
+                console.log('📅 Processed schedules:', schedules);
+                
+                if (!isMounted) return;
                 
                 // Transform API data - keep day_of_week as is
                 const colorMap = {
@@ -50,31 +59,49 @@ const Jadwal = () => {
                     'Struktur Data': 'bg-green-100 text-green-700'
                 };
                 
-                // Transform schedules - keep day_of_week for matching
-                const transformedData = schedules.map(schedule => ({
-                    id: schedule.id,
-                    course_id: schedule.course_id,
-                    course_name: schedule.course_name,
-                    day_of_week: schedule.day_of_week,
-                    start_time: schedule.start_time.substring(0, 5),
-                    end_time: schedule.end_time.substring(0, 5),
-                    room_code: schedule.room_code || 'TBA',
-                    lecturer_name: schedule.lecturer_name || 'TBA',
-                    color: colorMap[schedule.course_name] || 'bg-gray-100 text-gray-700'
-                }));
+                // Transform schedules - handle potential undefined values
+                const transformedData = schedules.map(schedule => {
+                    const startTime = schedule.start_time ? 
+                        (typeof schedule.start_time === 'string' ? schedule.start_time.substring(0, 5) : '00:00') : '00:00';
+                    const endTime = schedule.end_time ? 
+                        (typeof schedule.end_time === 'string' ? schedule.end_time.substring(0, 5) : '00:00') : '00:00';
+                    
+                    return {
+                        id: schedule.id || Date.now() + Math.random(),
+                        course_id: schedule.course_id || null,
+                        course_name: schedule.course_name || 'Mata Kuliah',
+                        day_of_week: schedule.day_of_week || 1, // Default to Monday if not set
+                        start_time: startTime,
+                        end_time: endTime,
+                        room_code: schedule.room_code || schedule.room_name || 'TBA',
+                        lecturer_name: schedule.lecturer_name || 'Dosen',
+                        color: colorMap[schedule.course_name] || 'bg-gray-100 text-gray-700'
+                    };
+                });
                 
                 console.log('🔄 Transformed schedules:', transformedData);
                 
-                setScheduleData(transformedData);
+                if (isMounted) {
+                    setScheduleData(transformedData);
+                }
             } catch (err) {
-                console.error('Error fetching schedules:', err);
-                setError(err.message);
+                console.error('❌ Error fetching schedules:', err);
+                if (isMounted) {
+                    setError(err.message || 'Gagal memuat jadwal');
+                }
             } finally {
-                setLoading(false);
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchSchedule();
+        
+        // Cleanup function
+        return () => {
+            isMounted = false;
+        };
     }, [user]);
 
     // Get Monday of the week containing the given date
@@ -85,33 +112,42 @@ const Jadwal = () => {
         return new Date(d.setDate(diff));
     };
 
-    // Get week days starting from Monday
+    // Get week days starting from Monday (5 working days only)
     const getWeekDays = () => {
         const monday = getMonday(currentDate);
         const days = [];
+        const DAY_INDICES = [1, 2, 3, 4, 5]; // Monday to Friday (1-5)
 
-        for (let i = 0; i < 5; i++) {
+        // Debug: Log all schedule days for reference
+        console.log('📅 All schedule days:', scheduleData.map(s => ({
+            course: s.course_name,
+            day: s.day_of_week,
+            dayName: DAY_NAMES[s.day_of_week],
+            time: `${s.start_time}-${s.end_time}`
+        })));
+
+        DAY_INDICES.forEach((apiDayOfWeek, index) => {
             const date = new Date(monday);
-            date.setDate(monday.getDate() + i);
-            const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+            date.setDate(monday.getDate() + index);
             
-            // Find schedules for this day
-            // API returns day_of_week as 1-7 (1=Monday, 7=Sunday)
-            // JavaScript getDay() returns 0-6 (0=Sunday, 1=Monday, ..., 6=Saturday)
-            // Convert: JS getDay() to API day_of_week
-            const apiDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+            const classesForDay = scheduleData.filter(s => {
+                const scheduleDay = typeof s.day_of_week === 'string' ? 
+                    parseInt(s.day_of_week, 10) : s.day_of_week;
+                return scheduleDay === apiDayOfWeek;
+            }) || [];
             
-            const classesForDay = scheduleData.filter(s => s.day_of_week === apiDayOfWeek) || [];
-            
-            console.log(`📅 Day ${DAY_NAMES[dayOfWeek]} (${date.getDate()}) - API day: ${apiDayOfWeek}, Classes: ${classesForDay.length}`);
+            console.log(`📅 ${DAY_NAMES[apiDayOfWeek]} (${date.getDate()} ${MONTHS[date.getMonth()].substring(0, 3)}) - API day: ${apiDayOfWeek}, Classes: ${classesForDay.length}`, 
+                classesForDay.map(c => c.course_name));
             
             days.push({
                 dateObj: date,
-                dayName: DAY_NAMES[dayOfWeek],
+                dayName: DAY_NAMES[apiDayOfWeek], // Use API day to get correct name
                 dateNum: date.getDate(),
-                classes: classesForDay
+                classes: classesForDay,
+                dayOfWeek: apiDayOfWeek
             });
-        }
+        });
+        
         return days;
     };
 
@@ -135,15 +171,22 @@ const Jadwal = () => {
     };
 
     const calculateTopPosition = (timeString) => {
-        const [hour, minute] = timeString.split(":").map(Number);
-        const totalMinutesFromStart = (hour - START_HOUR) * 60 + minute;
-        return (totalMinutesFromStart / 60) * ROW_HEIGHT;
+        if (!timeString) return 0;
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const totalMinutes = (hours * 60) + minutes;
+        const startOfDay = START_HOUR * 60; // 7:00 AM in minutes
+        const minutesFromStart = totalMinutes - startOfDay;
+        return (minutesFromStart / 60) * ROW_HEIGHT;
     };
 
     const calculateHeight = (startTime, endTime) => {
-        const startTop = calculateTopPosition(startTime);
-        const endTop = calculateTopPosition(endTime);
-        return endTop - startTop;
+        if (!startTime || !endTime) return ROW_HEIGHT * 2; // Default height
+        const [startH, startM] = startTime.split(':').map(Number);
+        const [endH, endM] = endTime.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+        const duration = endMinutes - startMinutes;
+        return Math.max((duration / 60) * ROW_HEIGHT, ROW_HEIGHT); // Ensure minimum height
     };
 
     const getCurrentTimePosition = () => {
@@ -262,44 +305,17 @@ const Jadwal = () => {
 
                         {/* RIGHT SIDE - Schedule Grid */}
                         <div className="flex-1">
-                            {/* Header with Week Days */}
-                            <div className="bg-white rounded-t-lg border border-gray-200 border-b-0">
-                                <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr]">
-                                    {/* Time Column Header */}
-                                    <div className="p-3 border-r border-gray-200 bg-gray-50"></div>
-
-                                    {/* Day Headers */}
-                                    {weekDays.map((day, idx) => {
-                                        const isCurrentDay = isToday(day.dateObj);
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className={`p-3 text-center border-r border-gray-200 last:border-r-0 ${
-                                                    isCurrentDay ? 'bg-blue-50' : 'bg-white'
-                                                }`}
-                                            >
-                                                <p className={`text-xs font-medium ${isCurrentDay ? 'text-blue-600' : 'text-gray-500'}`}>
-                                                    {day.dayName.substring(0, 3).toUpperCase()}
-                                                </p>
-                                                <p className={`text-lg font-bold mt-1 ${isCurrentDay ? 'text-blue-600' : 'text-gray-900'}`}>
-                                                    {day.dateNum}
-                                                </p>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
                             {/* Schedule Grid */}
-                            <div className="relative overflow-y-auto max-h-[700px] border border-t-0 border-gray-200 rounded-b-lg bg-white">
-                                {/* Grid Background */}
-                                <div className="absolute inset-0 grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr] pointer-events-none">
-                                    {/* Time Column */}
-                                    <div className="border-r border-gray-200 bg-gray-50">
+                            <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+                                {/* Main Schedule Container */}
+                                <div className="relative h-[calc(100vh-200px)] overflow-y-auto">
+                                    {/* Time slots column - Fixed position */}
+                                    <div className="absolute left-0 w-20 z-20 bg-white">
+                                        <div className="h-16"></div> {/* Spacer for day headers */}
                                         {timeSlots.map((time, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="border-b border-gray-200 text-xs text-gray-400 font-medium pr-3 flex items-start justify-end pt-1"
+                                            <div 
+                                                key={idx} 
+                                                className="h-15 text-xs text-right pr-2 border-r border-gray-200"
                                                 style={{ height: `${ROW_HEIGHT}px` }}
                                             >
                                                 {time}
@@ -307,63 +323,78 @@ const Jadwal = () => {
                                         ))}
                                     </div>
 
-                                    {/* Day Columns */}
-                                    {weekDays.map((_, idx) => (
-                                        <div key={idx} className="border-r border-gray-100 last:border-r-0 relative">
-                                            {timeSlots.map((_, tIdx) => (
-                                                <div
-                                                    key={tIdx}
-                                                    className="border-b border-gray-50 w-full"
-                                                    style={{ height: `${ROW_HEIGHT}px` }}
-                                                ></div>
+                                    {/* Schedule grid */}
+                                    <div className="ml-20">
+                                        {/* Day headers row - Fixed at the top */}
+                                        <div className="grid grid-cols-5 gap-1 sticky top-0 z-20 bg-white">
+                                            {weekDays.map((day, dayIdx) => (
+                                                <div 
+                                                    key={`header-${dayIdx}`}
+                                                    className={`border-b-2 border-gray-200 p-2 text-center font-medium ${
+                                                        isToday(day.dateObj) ? 'bg-blue-50' : ''
+                                                    }`}
+                                                >
+                                                    <div className="font-semibold">{day.dayName}</div>
+                                                    <div className={`text-sm ${
+                                                        isToday(day.dateObj) 
+                                                            ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mx-auto' 
+                                                            : 'text-gray-500'
+                                                    }`}>
+                                                        {day.dateNum}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
-                                    ))}
-                                </div>
+                                        
+                                        {/* Schedule content */}
+                                        <div className="grid grid-cols-5 gap-1 relative">
+                                            {weekDays.map((day, dayIdx) => (
+                                                <div 
+                                                    key={dayIdx}
+                                                    className="border border-t-0 border-gray-200 bg-white relative"
+                                                    style={{ minHeight: `${(END_HOUR - START_HOUR) * ROW_HEIGHT}px` }}
+                                                >
 
-                                {/* Current Time Indicator */}
-                                {currentTimeTop !== null && (
-                                    <div
-                                        className="absolute left-0 right-0 h-0.5 bg-red-500 z-20 pointer-events-none"
-                                        style={{
-                                            top: `${80 + currentTimeTop}px`,
-                                            gridColumn: '1 / -1'
-                                        }}
-                                    >
-                                        <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-500 rounded-full"></div>
-                                    </div>
-                                )}
-
-                                {/* Schedule Events */}
-                                <div className="absolute inset-0 grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr]">
-                                    <div></div>
-                                    {weekDays.map((day, dayIdx) => (
-                                        <div key={dayIdx} className="relative">
-                                            {day.classes?.map((cls, clsIdx) => {
-                                                const topPos = calculateTopPosition(cls.start_time);
-                                                const height = calculateHeight(cls.start_time, cls.end_time);
-
-                                                console.log(`🎨 Rendering ${cls.course_name}: top=${topPos}px, height=${height}px`);
-
-                                                return (
-                                                    <div
-                                                        key={clsIdx}
-                                                        className={`absolute left-1 right-1 rounded p-2 text-xs overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer ${cls.color} z-10`}
-                                                        style={{
-                                                            top: `${topPos}px`,
-                                                            height: `${height}px`,
-                                                            zIndex: 10
-                                                        }}
-                                                        title={`${cls.course_name}\n${cls.lecturer_name}\n${cls.room_code}`}
-                                                    >
-                                                        <p className="font-semibold truncate">{cls.course_name}</p>
-                                                        <p className="text-xs opacity-75 truncate">{cls.start_time} - {cls.end_time}</p>
-                                                        <p className="text-xs opacity-75 truncate">{cls.room_code}</p>
+                                                    {/* Schedule items */}
+                                                    <div className="relative" style={{ minHeight: `${(END_HOUR - START_HOUR) * ROW_HEIGHT}px` }}>
+                                                        {day.classes?.map((cls, clsIdx) => {
+                                                            const top = calculateTopPosition(cls.start_time);
+                                                            const height = calculateHeight(cls.start_time, cls.end_time);
+                                                            
+                                                            return (
+                                                                <div
+                                                                    key={clsIdx}
+                                                                    className={`absolute left-1 right-1 rounded p-2 text-xs overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer ${cls.color} z-10`}
+                                                                    style={{
+                                                                        top: `${top}px`,
+                                                                        height: `${height}px`,
+                                                                        minHeight: '40px' // Ensure minimum height for visibility
+                                                                    }}
+                                                                    title={`${cls.course_name}\n${cls.lecturer_name || 'Dosen'}\n${cls.room_code || 'TBA'}`}
+                                                                >
+                                                                    <p className="font-semibold truncate">{cls.course_name || 'Mata Kuliah'}</p>
+                                                                    <p className="text-xs opacity-75 truncate">
+                                                                        {cls.start_time} - {cls.end_time}
+                                                                    </p>
+                                                                    <p className="text-xs opacity-75 truncate">{cls.room_code || 'TBA'}</p>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
-                                                );
-                                            })}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    </div>
+
+                                    {/* Current time indicator */}
+                                    {currentTimeTop !== null && (
+                                        <div
+                                            className="absolute left-20 right-0 h-0.5 bg-red-500 z-30 pointer-events-none"
+                                            style={{ top: `${64 + currentTimeTop}px` }}
+                                        >
+                                            <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-500 rounded-full"></div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

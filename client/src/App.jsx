@@ -33,6 +33,7 @@ const AppLayout = () => {
   const hideLayout = ["/Login", "/Register", "/ResetPassword"].includes(
     location.pathname
   );
+  const hideFooter = location.pathname === "/Jadwal";
 
   return (
     <>
@@ -46,7 +47,11 @@ const AppLayout = () => {
           path="/Jadwal"
           element={
             <RequireAuth>
-              <Jadwal />
+              <div className="min-h-screen flex flex-col">
+                <div className="flex-1">
+                  <Jadwal />
+                </div>
+              </div>
             </RequireAuth>
           }
         />
@@ -92,7 +97,7 @@ const AppLayout = () => {
           }
         />
       </Routes>
-      {!hideLayout && <Footer />}
+      {!hideLayout && !hideFooter && <Footer />}
     </>
   );
 };
