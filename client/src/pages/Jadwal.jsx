@@ -557,7 +557,7 @@ const Jadwal = () => {
                                 </div>
                                 <div>
                                     <span className="text-gray-600">Ruangan Saat Ini:</span>
-                                    <span className="ml-2 font-medium">{selectedEvent.room_name || 'Belum ditentukan'}</span>
+                                    <span className="ml-2 font-medium">{selectedEvent.room_code || 'Belum ditentukan'}</span>
                                 </div>
                             </div>
                         </div>
