@@ -66,6 +66,217 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Find available rooms for rescheduling (must be before /:id route)
+router.get('/available-for-reschedule', authenticateToken, async (req, res) => {
+    console.log('Available for reschedule request:', req.query);
+    try {
+        const { 
+            original_date, 
+            original_start_time, 
+            original_end_time,
+            duration_minutes = 150,  // Default 2.5 hours
+            from_date = new Date().toISOString().split('T')[0],  // Today
+            to_date = '2025-12-05'  // End of semester
+        } = req.query;
+
+        // Validate required parameters
+        if (!original_date || !original_start_time || !original_end_time) {
+            return res.status(400).json({
+                error: 'Missing required parameters',
+                details: 'original_date, original_start_time, and original_end_time are required'
+            });
+        }
+
+        // Convert duration to minutes
+        const duration = parseInt(duration_minutes);
+        if (isNaN(duration) || duration <= 0) {
+            return res.status(400).json({
+                error: 'Invalid duration',
+                details: 'duration_minutes must be a positive number'
+            });
+        }
+
+        // Format the original time for comparison
+        const originalDateTime = `${original_date} ${original_start_time}`;
+        
+        // Validate date formats
+        if (isNaN(Date.parse(original_date)) || isNaN(Date.parse(from_date)) || isNaN(Date.parse(to_date))) {
+            return res.status(400).json({
+                error: 'Invalid date format',
+                details: 'Please provide dates in YYYY-MM-DD format'
+            });
+        }
+
+        // Get all active rooms
+        let roomsResult;
+        try {
+            roomsResult = await pool.query(`
+                SELECT id, name, capacity, building, floor
+                FROM rooms
+                WHERE is_active = true
+                ORDER BY building, name
+            `);
+            console.log(`Found ${roomsResult.rows.length} active rooms`);
+            
+            if (!roomsResult.rows.length) {
+                return res.status(404).json({
+                    error: 'No active rooms found',
+                    details: 'There are no active rooms available in the system'
+                });
+            }
+        } catch (roomError) {
+            console.error('Error fetching rooms:', roomError);
+            return res.status(500).json({
+                error: 'Failed to fetch rooms',
+                details: roomError.message
+            });
+        }
+
+        const availableSlots = [];
+
+        // Check each room
+        for (const room of roomsResult.rows) {
+            // Get all scheduled events for this room in the date range
+            let eventsResult;
+            try {
+                eventsResult = await pool.query(`
+                    SELECT 
+                        se.event_date, 
+                        se.start_time, 
+                        se.end_time,
+                        c.name as course_name
+                    FROM schedule_events se
+                    LEFT JOIN courses c ON se.course_id = c.id
+                    WHERE se.room_id = $1
+                    AND se.event_date BETWEEN $2::date AND $3::date
+                    AND se.status = 'scheduled'
+                    ORDER BY se.event_date, se.start_time
+                `, [room.id, from_date, to_date]);
+                console.log(`Found ${eventsResult.rows.length} scheduled events for room ${room.id}`);
+            } catch (eventError) {
+                console.error(`Error fetching events for room ${room.id}:`, eventError);
+                // Continue to next room if there's an error with this one
+                continue;
+            }
+
+            const bookedSlots = eventsResult.rows;
+
+            // Convert to Date objects for easier comparison
+            const checkDate = new Date(from_date);
+            const endDate = new Date(to_date);
+            
+            // Check each day in the range
+            while (checkDate <= endDate) {
+                const currentDate = checkDate.toISOString().split('T')[0];
+                const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+                // Skip weekends
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    checkDate.setDate(checkDate.getDate() + 1);
+                    continue;
+                }
+
+                // Check time slots from 07:00 to 18:00
+                for (let hour = 7; hour <= 18; hour++) {
+                    for (let minute = 0; minute < 60; minute += 30) { // Check every 30 minutes
+                        const startTime = new Date(checkDate);
+                        startTime.setHours(hour, minute, 0, 0);
+                        
+                        const endTime = new Date(startTime.getTime() + duration * 60000);
+                        
+                        // Skip if end time is after 18:00
+                        if (endTime.getHours() > 18 || 
+                            (endTime.getHours() === 18 && endTime.getMinutes() > 0)) {
+                            continue;
+                        }
+
+                        // Skip if this is the original time slot
+                        if (currentDate === original_date && 
+                            `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}` === original_start_time) {
+                            continue;
+                        }
+
+                        // Check for conflicts
+                        const hasConflict = bookedSlots.some(event => {
+                            const eventStart = new Date(`${event.event_date}T${event.start_time}`);
+                            const eventEnd = new Date(`${event.event_date}T${event.end_time}`);
+                            
+                            return (startTime < eventEnd && endTime > eventStart) && 
+                                   (event.event_date === currentDate);
+                        });
+
+                        if (!hasConflict) {
+                            availableSlots.push({
+                                room_id: room.id,
+                                room_name: room.name,
+                                building: room.building,
+                                floor: room.floor,
+                                date: currentDate,
+                                start_time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+                                end_time: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`,
+                                duration_minutes: duration
+                            });
+                        }
+                    }
+                }
+
+                checkDate.setDate(checkDate.getDate() + 1);
+            }
+        }
+
+        // Group by date and time for better presentation
+        const groupedSlots = availableSlots.reduce((acc, slot) => {
+            const key = `${slot.date}_${slot.start_time}_${slot.end_time}`;
+            if (!acc[key]) {
+                acc[key] = {
+                    date: slot.date,
+                    start_time: slot.start_time,
+                    end_time: slot.end_time,
+                    duration_minutes: slot.duration_minutes,
+                    available_rooms: []
+                };
+            }
+            acc[key].available_rooms.push({
+                room_id: slot.room_id,
+                room_name: slot.room_name,
+                building: slot.building,
+                floor: slot.floor
+            });
+            return acc;
+        }, {});
+
+        res.json({
+            success: true,
+            data: Object.values(groupedSlots)
+        });
+
+    } catch (error) {
+        console.error('Error in available-for-reschedule endpoint:', {
+            error: error.message,
+            stack: error.stack,
+            query: req.query,
+            user: req.user?.id
+        });
+        
+        // More specific error messages based on error type
+        let errorMessage = 'Internal server error';
+        let statusCode = 500;
+        
+        if (error.message.includes('invalid input syntax for type date')) {
+            errorMessage = 'Invalid date format';
+            statusCode = 400;
+        } else if (error.message.includes('relation') && error.message.includes('does not exist')) {
+            errorMessage = 'Database table not found';
+            statusCode = 500;
+        }
+        
+        res.status(statusCode).json({
+            error: errorMessage,
+            details: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred while processing your request'
+        });
+    }
+});
+
 // Get room by ID
 router.get('/:id', async (req, res) => {
   try {
