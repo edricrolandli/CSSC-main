@@ -27,66 +27,34 @@ const Materi = () => {
         }
     }, [user]);
 
-    const materials = [
-        {
-            id: "pemrograman-website",
-            name: "Pemrograman Website",
-            image: "pemweb.png",
-            pengajar: "Dr. Dewi Sartika Br Ginting S.Kom | Nurrahmadiayah M.Kom",
-            meetings: 15,
-            color: "bg-blue-100 text-blue-600"
-        },
-        {
-            id: "struktur-data",
-            name: "Struktur Data",
-            image: "sd.png",
-            pengajar: "Anandhini Medianty Nababan S.Kom., M.T | Insidini Fawwaz M.Kom",
-            meetings: 14,
-            color: "bg-emerald-100 text-emerald-600"
-        },
-        {
-            id: "basis-data",
-            name: "Basis Data",
-            image: "basdat.png",
-            pengajar: "Dr. Dewi Sartika Br Ginting S.Kom., M.Kom | Insidini Fawwaz M.Kom",
-            meetings: 16,
-            color: "bg-purple-100 text-purple-600"
-        },
-        {
-            id: "wirausaha-digital",
-            name: "Wirausaha Digital",
-            image: "wirdig.png",
-            pengajar: "Dr. T. Henny Febriana Harumy S.Kom., M.Kom | Dr. Fauzan Nurahmadi S.Kom., M.Cs",
-            meetings: 12,
-            color: "bg-orange-100 text-orange-600"
-        },
-        {
-            id: "kecerdasan-buatan",
-            name: "Kecerdasan Buatan",
-            image: "kb.png",
-            pengajar: "Dr. Fauzan Nurahmadi S.Kom., M.Cs",
-            meetings: 14,
-            color: "bg-red-100 text-red-600"
-        },
-        {
-            id: "etika-profesi",
-            name: "Etika Profesi",
-            image: "etika.png",
-            pengajar: "Dr. Ade Gunawan S.Kom., M.Kom",
-            meetings: 10,
-            color: "bg-indigo-100 text-indigo-600"
-        }
+    // Generate color classes
+    const colors = [
+        "bg-blue-100 text-blue-600",
+        "bg-emerald-100 text-emerald-600", 
+        "bg-purple-100 text-purple-600",
+        "bg-orange-100 text-orange-600",
+        "bg-red-100 text-red-600",
+        "bg-indigo-100 text-indigo-600",
+        "bg-pink-100 text-pink-600",
+        "bg-yellow-100 text-yellow-600",
+        "bg-green-100 text-green-600",
+        "bg-cyan-100 text-cyan-600"
     ];
 
-    // Filter by subscription first, then by search
+    // Convert subscriptions to materials format
+    const materials = mySubscriptions.map((sub, index) => ({
+        id: sub.name?.toLowerCase().replace(/\s+/g, '-') || `course-${sub.course_id}`,
+        name: sub.name,
+        course_code: sub.course_code,
+        credits: sub.credits || 3,
+        pengajar: "Dosen Pengampu", // TODO: Get from database
+        meetings: 16, // Standard 16 meetings per semester
+        semester: sub.semester || "Ganjil",
+        color: colors[index % colors.length]
+    }));
+
+    // Filter by search
     const filteredMaterials = materials.filter((item) => {
-        // Check if user is subscribed to this course
-        const isSubscribed = mySubscriptions.some(sub => sub.name === item.name);
-        
-        // If user is not subscribed, don't show the material
-        if (!isSubscribed) return false;
-        
-        // Apply search filter
         return item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                item.pengajar.toLowerCase().includes(searchTerm.toLowerCase());
     });
@@ -136,18 +104,9 @@ const Materi = () => {
                                     {/* Circle Decorative Background */}
                                     <div className="absolute w-32 h-32 bg-white/30 rounded-full blur-2xl top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
                                     
-                                    {item.image ? (
-                                        <img
-                                            src={`/${item.image}`}
-                                            alt={item.name}
-                                            className="h-auto w-full object-contain relative z-10 drop-shadow-md transition-transform duration-300 group-hover:scale-110"
-                                            onError={(e) => { e.target.style.display = 'none'; }}
-                                        />
-                                    ) : (
-                                        <svg className="h-16 w-16 text-gray-400/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
-                                    )}
+                                    <svg className="h-16 w-16 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                    </svg>
                                 </div>
 
                                 {/* Card Body */}
@@ -155,13 +114,13 @@ const Materi = () => {
                                     <div>
                                         <div className="flex items-center justify-between mb-3">
                                             <span className="px-2 py-1 text-[10px] font-bold tracking-wide uppercase bg-gray-100 text-gray-600 rounded-md">
-                                                Semester Ganjil
+                                                Semester {item.semester}
                                             </span>
                                             <div className="flex items-center text-xs font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
                                                 <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
-                                                {item.meetings} Sesi
+                                                {item.meetings} Pertemuan
                                             </div>
                                         </div>
 

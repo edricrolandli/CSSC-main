@@ -206,25 +206,10 @@ router.post('/subscribe', authenticateToken, async (req, res) => {
       });
     }
 
-    // Find the class schedule for this course
-    const scheduleResult = await pool.query(
-      'SELECT id FROM class_schedules WHERE course_id = $1 LIMIT 1',
-      [course_id]
-    );
-
-    if (scheduleResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'No schedule found',
-        details: 'No class schedule found for this course'
-      });
-    }
-
-    const class_schedule_id = scheduleResult.rows[0].id;
-
     // Check if already subscribed
     const existingSubscription = await pool.query(
-      'SELECT user_id, class_schedule_id FROM user_class_schedules WHERE user_id = $1 AND class_schedule_id = $2',
-      [user_id, class_schedule_id]
+      'SELECT user_id, course_id FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
+      [user_id, course_id]
     );
 
     if (existingSubscription.rows.length > 0) {
@@ -236,8 +221,8 @@ router.post('/subscribe', authenticateToken, async (req, res) => {
 
     // Create subscription
     const result = await pool.query(
-      'INSERT INTO user_class_schedules (user_id, class_schedule_id) VALUES ($1, $2) RETURNING user_id, class_schedule_id, enrolled_at',
-      [user_id, class_schedule_id]
+      'INSERT INTO course_subscriptions (user_id, course_id) VALUES ($1, $2) RETURNING user_id, course_id',
+      [user_id, course_id]
     );
 
     const course = courseResult.rows[0];
@@ -248,7 +233,7 @@ router.post('/subscribe', authenticateToken, async (req, res) => {
         user_id: result.rows[0].user_id,
         course_id: course_id,
         course_name: course.course_name,
-        subscribed_at: result.rows[0].enrolled_at
+        subscribed_at: new Date().toISOString()
       }
     });
 
@@ -275,25 +260,10 @@ router.delete('/unsubscribe', authenticateToken, async (req, res) => {
     const { course_id } = value;
     const user_id = req.user.id;
 
-    // Find the class schedule for this course
-    const scheduleResult = await pool.query(
-      'SELECT id FROM class_schedules WHERE course_id = $1 LIMIT 1',
-      [course_id]
-    );
-
-    if (scheduleResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'No schedule found',
-        details: 'No class schedule found for this course'
-      });
-    }
-
-    const class_schedule_id = scheduleResult.rows[0].id;
-
     // Check if subscription exists
     const existingSubscription = await pool.query(
-      'SELECT user_id, class_schedule_id FROM user_class_schedules WHERE user_id = $1 AND class_schedule_id = $2',
-      [user_id, class_schedule_id]
+      'SELECT user_id, course_id FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
+      [user_id, course_id]
     );
 
     if (existingSubscription.rows.length === 0) {
@@ -305,8 +275,8 @@ router.delete('/unsubscribe', authenticateToken, async (req, res) => {
 
     // Delete subscription
     await pool.query(
-      'DELETE FROM user_class_schedules WHERE user_id = $1 AND class_schedule_id = $2',
-      [user_id, class_schedule_id]
+      'DELETE FROM course_subscriptions WHERE user_id = $1 AND course_id = $2',
+      [user_id, course_id]
     );
 
     res.json({
@@ -328,16 +298,10 @@ router.get('/my/subscriptions', authenticateToken, async (req, res) => {
     const user_id = req.user.id;
 
     const result = await pool.query(`
-      SELECT c.id as course_id, c.course_code, c.course_name as name, c.credits,
-             cs.day_of_week, cs.start_time, cs.end_time, cs.lecturer_name,
-             cs.semester, cs.academic_year, ucs.enrolled_at as subscribed_at,
-             cl.room_number, b.building_name
-      FROM user_class_schedules ucs
-      JOIN class_schedules cs ON ucs.class_schedule_id = cs.id
+      SELECT c.id as course_id, c.course_code, c.course_name as name, c.credits
+      FROM course_subscriptions cs
       JOIN courses c ON cs.course_id = c.id
-      LEFT JOIN classrooms cl ON cs.room_id = cl.id
-      LEFT JOIN buildings b ON cl.building_id = b.id
-      WHERE ucs.user_id = $1
+      WHERE cs.user_id = $1
       ORDER BY c.course_code
     `, [user_id]);
 
@@ -452,11 +416,11 @@ router.get('/schedules/my', authenticateToken, async (req, res) => {
         cs.lecturer_name,
         cs.semester,
         cs.academic_year
-      FROM user_class_schedules ucs
-      JOIN class_schedules cs ON ucs.class_schedule_id = cs.id
-      JOIN courses c ON cs.course_id = c.id
+      FROM course_subscriptions csub
+      JOIN courses c ON csub.course_id = c.id
+      LEFT JOIN class_schedules cs ON c.id = cs.course_id
       LEFT JOIN classrooms cl ON cs.room_id = cl.id
-      WHERE ucs.user_id = $1
+      WHERE csub.user_id = $1
       ORDER BY cs.day_of_week, cs.start_time
     `, [userId]);
     
