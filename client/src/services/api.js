@@ -4,7 +4,8 @@ const API_BASE_URL =
 
 class ApiService {
   constructor() {
-    this.baseURL = API_BASE_URL;
+    // Normalize base URL: remove any trailing slash to avoid double slashes when joining
+    this.baseURL = API_BASE_URL.replace(/\/+$/, "");
     this.token = localStorage.getItem("cssc-token");
   }
 
