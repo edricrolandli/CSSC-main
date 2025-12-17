@@ -124,6 +124,33 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// Log OPTIONS (preflight) requests for debugging CORS issues
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    console.log(
+      `[CORS-OPTIONS] origin=${req.get("Origin")} host=${req.get(
+        "Host"
+      )} path=${req.path}`
+    );
+  }
+  next();
+});
+
+// Root API endpoint to verify deployment and avoid redirects
+app.get("/api", (req, res) => {
+  console.log(
+    `[API-ROOT] ${req.method} ${req.originalUrl} - origin=${
+      req.get("Origin") || "<no-origin>"
+    } host=${req.get("Host")}`
+  );
+  res.json({
+    message: "CSSC API is running",
+    version: "1.0.0",
+    environment: process.env.NODE_ENV || "development",
+    allowedOrigins: DEFAULT_ALLOWED_ORIGINS,
+  });
+});
+
 // Root endpoint - API info
 app.get("/", (req, res) => {
   res.json({
