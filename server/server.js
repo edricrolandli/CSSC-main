@@ -24,16 +24,7 @@ import materialRoutes from "./routes/materials.js";
 import { requestLogger } from "./middleware/index.js";
 
 // Import database (connection will be tested at startup)
-// import "./config/database.js";
-import pool from "../config/database.js";
-
-let pool;
-
-if (!pool) {
-  pool = new Pool({ connectionString: process.env.DATABASE_URL });
-}
-
-export default pool;
+import "./config/database.js";
 
 dotenv.config();
 
@@ -285,7 +276,9 @@ const testDatabaseConnection = async () => {
     return false;
   }
 };
-
+// Export a serverless handler for platforms like Vercel. This allows Vercel
+// to invoke the Express app as a function. When not running on Vercel we
+// will start a normal HTTP server and initialize Socket.IO.
 const handler = serverless(app);
 export default handler;
 
@@ -334,12 +327,12 @@ if (!process.env.VERCEL) {
       `🔗 Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:5173"}`
     );
 
-    // const dbConnected = await testDatabaseConnection();
-    // if (!dbConnected) {
-    //   console.warn(
-    //     "⚠️  Server started but database connection failed. Authentication will not work."
-    //   );
-    // }
+    const dbConnected = await testDatabaseConnection();
+    if (!dbConnected) {
+      console.warn(
+        "⚠️  Server started but database connection failed. Authentication will not work."
+      );
+    }
   });
 } else {
   // Running on Vercel as a serverless function
