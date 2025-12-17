@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "note": "Deprecated - use root vercel.json in monorepo root to configure client and server builds",
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

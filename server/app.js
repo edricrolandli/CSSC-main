@@ -3,10 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
-import { createServer } from "http";
-import serverless from "serverless-http";
-import path from "path";
-import { fileURLToPath } from "url";
 
 // Import routes
 import authRoutes from "./routes/auth.js";
@@ -23,24 +19,12 @@ import materialRoutes from "./routes/materials.js";
 // Import middleware
 import { requestLogger } from "./middleware/index.js";
 
-// Import database (connection will be tested at startup)
+// Import database (connection will be tested at startup in dev only)
 import "./config/database.js";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
-// Provide a lightweight stub `io` for environments (like Vercel) where persistent sockets
-// are not available. We'll override this with a real Socket.IO server in non-serverless
-// environments so route handlers can safely call `req.app.get('io')` without checks.
-let io = {
-  on: () => {},
-  emit: () => {},
-  to: () => ({ emit: () => {} }),
-};
-app.set("io", io);
 
 // Configure allowed origins from environment (comma-separated) for flexible deployments
 const DEFAULT_ALLOWED_ORIGINS = (
@@ -49,13 +33,6 @@ const DEFAULT_ALLOWED_ORIGINS = (
 )
   .split(",")
   .map((s) => s.trim());
-
-const corsOriginForSocket = DEFAULT_ALLOWED_ORIGINS.includes("*")
-  ? "*"
-  : DEFAULT_ALLOWED_ORIGINS;
-
-// NOTE: Socket.IO is created only when running as a long-lived server (local / VPS).
-// On Vercel (serverless) we will not initialize Socket.IO and keep the stub above.
 
 // Middleware
 app.use(helmet());
@@ -186,12 +163,6 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/materials", materialRoutes);
 
-// (Socket.IO connection handling is initialized conditionally below when running
-// as a normal server process.)
-
-// Make io available to routes
-app.set("io", io);
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err);
@@ -225,131 +196,4 @@ app.use("*", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-
-// Test database connection before starting server
-const testDatabaseConnection = async () => {
-  try {
-    console.log("🔍 Testing database connection...");
-    const { default: pool } = await import("./config/database.js");
-
-    const result = await pool.query(
-      "SELECT NOW() as current_time, version() as db_version"
-    );
-    console.log("✅ Database connected successfully:", {
-      time: result.rows[0].current_time,
-      version: result.rows[0].db_version.split(" ")[0],
-    });
-
-    // Test if users table exists and has data
-    const userCount = await pool.query("SELECT COUNT(*) as count FROM users");
-    console.log(`👥 Users in database: ${userCount.rows[0].count}`);
-
-    // Show sample users for debugging
-    const sampleUsers = await pool.query(
-      "SELECT id, name, email, role FROM users LIMIT 3"
-    );
-    console.log("📋 Sample users:", sampleUsers.rows);
-
-    return true;
-  } catch (error) {
-    console.error("❌ Database connection failed:", {
-      message: error.message,
-      code: error.code,
-      detail: error.detail,
-    });
-
-    if (error.code === "ECONNREFUSED") {
-      console.error(
-        "💡 Suggestion: Make sure PostgreSQL is running and check your .env file"
-      );
-    } else if (error.code === "3D000") {
-      console.error(
-        "💡 Suggestion: Database does not exist. Run migrations first."
-      );
-    } else if (error.code === "42P01") {
-      console.error(
-        "💡 Suggestion: Tables do not exist. Run migrations and seeding."
-      );
-    }
-
-    return false;
-  }
-};
-// Export a serverless handler for platforms like Vercel. This allows Vercel
-// to invoke the Express app as a function. When not running on Vercel we
-// will start a normal HTTP server and initialize Socket.IO.
-const handler = serverless(app);
-export default handler;
-
-if (!process.env.VERCEL) {
-  // Running as a normal server (not serverless) - create real HTTP server
-  const server = createServer(app);
-  // initialize Socket.IO only in this mode
-  try {
-    const { Server } = await import("socket.io");
-    const actualIo = new Server(server, {
-      cors: {
-        origin: corsOriginForSocket,
-        methods: ["GET", "POST"],
-      },
-    });
-
-    // Attach real socket handlers
-    actualIo.on("connection", (socket) => {
-      console.log("Client connected:", socket.id);
-
-      socket.on("join-user-room", (userId) => {
-        socket.join(`user-${userId}`);
-        console.log(`User ${userId} joined their room`);
-      });
-
-      socket.on("join-course-room", (courseId) => {
-        socket.join(`course-${courseId}`);
-        console.log(`User joined course room: ${courseId}`);
-      });
-
-      socket.on("disconnect", () => {
-        console.log("Client disconnected:", socket.id);
-      });
-    });
-
-    // Replace stub with real instance
-    app.set("io", actualIo);
-  } catch (e) {
-    console.warn("Socket.IO could not be initialized:", e.message || e);
-  }
-
-  server.listen(PORT, async () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-    console.log(
-      `🔗 Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:5173"}`
-    );
-
-    const dbConnected = await testDatabaseConnection();
-    if (!dbConnected) {
-      console.warn(
-        "⚠️  Server started but database connection failed. Authentication will not work."
-      );
-    }
-  });
-} else {
-  // Running on Vercel as a serverless function
-  console.log("Running as a serverless handler (Vercel or similar)");
-}
-
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received, shutting down gracefully");
-  server.close(() => {
-    console.log("Process terminated");
-  });
-});
-
-process.on("SIGINT", () => {
-  console.log("SIGINT received, shutting down gracefully");
-  server.close(() => {
-    console.log("Process terminated");
-  });
-});
+export default app;
