@@ -33,29 +33,50 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
+// Configure allowed origins from environment (comma-separated) for flexible deployments
+const DEFAULT_ALLOWED_ORIGINS = (
+  process.env.ALLOWED_ORIGINS ||
+  "https://cssc-lyart.vercel.app, http://localhost:5173,http://localhost:5174,https://csscayamgeprek.vercel.app,https://csscayamgeprek-tau.vercel.app"
+)
+  .split(",")
+  .map((s) => s.trim());
+
+const corsOriginForSocket = DEFAULT_ALLOWED_ORIGINS.includes("*")
+  ? "*"
+  : DEFAULT_ALLOWED_ORIGINS;
+
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://csscayamgeprek.vercel.app",
-    ],
+    origin: corsOriginForSocket,
     methods: ["GET", "POST"],
   },
 });
 
 // Middleware
 app.use(helmet());
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://csscayamgeprek.vercel.app",
-    ],
-    credentials: true,
-  })
-);
+
+// Express CORS options: allow specified origins and preflight handling
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (e.g., mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (
+      DEFAULT_ALLOWED_ORIGINS.includes("*") ||
+      DEFAULT_ALLOWED_ORIGINS.includes(origin)
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
+// Debug endpoint to show what origins the server will accept
+app.get("/api/cors", (req, res) => {
+  res.json({ allowedOrigins: DEFAULT_ALLOWED_ORIGINS });
+});
 
 // Rate limiting
 const limiter = rateLimit({
