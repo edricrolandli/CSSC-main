@@ -290,6 +290,11 @@ router.post(
           .json({ error: "Invalid courseId or meeting format" });
       }
 
+      console.log(
+        `[DEBUG] ${req.user?.name || req.user?.email} mencoba mengunggah file=${
+          req.file.originalname
+        } ke course=${courseIdNum} meeting=${meetingNum}`
+      );
       console.log("Uploading file:", {
         courseId: courseIdNum,
         meeting: meetingNum,
@@ -318,6 +323,13 @@ router.post(
 
       const material = result.rows[0];
 
+      console.log(
+        `[DEBUG] ${
+          req.user?.name || req.user?.email
+        } telah mengunggah materi id=${material.id} title=${
+          material.title
+        } course=${courseIdNum} meeting=${meetingNum}`
+      );
       console.log("Material uploaded successfully:", {
         id: material.id,
         title: material.title,
@@ -411,6 +423,12 @@ router.delete(
 
       const material = materialResult.rows[0];
 
+      console.log(
+        `[DEBUG] ${
+          req.user?.name || req.user?.email
+        } mencoba menghapus materi id=${fileId} title=${material.title}`
+      );
+
       // Delete from file system
       const filePath = path.join(
         __dirname,
@@ -423,6 +441,12 @@ router.delete(
 
       // Delete from database
       await pool.query("DELETE FROM materials WHERE id = $1", [fileId]);
+
+      console.log(
+        `[DEBUG] ${
+          req.user?.name || req.user?.email
+        } telah menghapus materi id=${fileId} title=${material.title}`
+      );
 
       res.json({ message: "Material deleted successfully" });
     } catch (error) {

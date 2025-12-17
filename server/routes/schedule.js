@@ -245,6 +245,12 @@ router.post(
         meetingNumber,
       } = req.body;
 
+      console.log(
+        `[DEBUG] ${
+          req.user?.name || req.user?.email
+        } mencoba mengubah jadwal course ${courseId} -> ${newDate} ${newStartTime}-${newEndTime}`
+      );
+
       if (!courseId || !newDate || !newStartTime || !newEndTime) {
         return res.status(400).json({
           error: "Missing required fields",
@@ -333,6 +339,11 @@ router.post(
 
         await client.query("COMMIT");
 
+        console.log(
+          `[DEBUG] ${
+            req.user?.name || req.user?.email
+          } telah mengubah jadwal course ${courseId} ke ${newDate}`
+        );
         res.json({
           message: `Schedule updated for week ${academicWeek}, meeting ${finalMeetingNumber}`,
           event: result.rows[0],

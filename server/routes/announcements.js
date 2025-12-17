@@ -86,7 +86,12 @@ router.post(
       const { title, content, subject, date, time } = req.body;
       const userId = req.user.id;
 
-      // Check if user is komting
+      console.log(
+        `[DEBUG] ${
+          req.user?.name || req.user?.email
+        } mencoba membuat pengumuman judul="${title}" subject="${subject}"`
+      );
+
       const userResult = await pool.query(
         "SELECT name, role FROM users WHERE id = $1",
         [userId]
